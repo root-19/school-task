@@ -1,45 +1,14 @@
-/**
- * Student Class Implementation
- * 
- * This file implements the Student class which manages student enrollment,
- * including CRUD operations and database interactions with SQLite.
- * 
- * Key Features:
- * - Student enrollment with automatic slot reduction
- * - Student removal with slot restoration
- * - Duplicate student number validation
- * - Session availability checking
- * 
- * Database Table: students
- * - id: Primary key
- * - student_number: Unique identifier for each student
- * - student_name: Full name of the student
- * - section: Class section (e.g., A, B, C)
- * - session_id: Foreign key to sessions table
- * - learning_modality: Face-to-Face, Online, or Hybrid
- */
-
 #include "../include/Student.h"
 #include <iostream>
 #include <iomanip>
 #include "../include/Session.h"
 
-// ============================================
-// CONSTRUCTORS
-// ============================================
-
-// Default constructor - initializes all fields to default values
 Student::Student() : id(0), sessionId(0) {}
 
-// Parameterized constructor - used when loading data from database
 Student::Student(int id, const std::string& studentNumber, const std::string& studentName,
                 const std::string& section, int sessionId, const std::string& learningModality)
     : id(id), studentNumber(studentNumber), studentName(studentName),
       section(section), sessionId(sessionId), learningModality(learningModality) {}
-
-// ============================================
-// GETTER METHODS - Retrieve student information
-// ============================================
 
 int Student::getId() const { return id; }
 std::string Student::getStudentNumber() const { return studentNumber; }
@@ -48,10 +17,6 @@ std::string Student::getSection() const { return section; }
 int Student::getSessionId() const { return sessionId; }
 std::string Student::getLearningModality() const { return learningModality; }
 
-// ============================================
-// SETTER METHODS - Modify student information
-// ============================================
-
 void Student::setId(int id) { this->id = id; }
 void Student::setStudentNumber(const std::string& studentNumber) { this->studentNumber = studentNumber; }
 void Student::setStudentName(const std::string& studentName) { this->studentName = studentName; }
@@ -59,22 +24,16 @@ void Student::setSection(const std::string& section) { this->section = section; 
 void Student::setSessionId(int sessionId) { this->sessionId = sessionId; }
 void Student::setLearningModality(const std::string& learningModality) { this->learningModality = learningModality; }
 
-// ============================================
-// ENROLLMENT OPERATIONS
-// ============================================
-
 bool Student::enroll() {
     try {
         DatabaseConnection* db = DatabaseConnection::getInstance();
         sqlite3* con = db->getConnection();
         
-        // Check if student number already exists
         if (studentNumberExists(studentNumber)) {
             std::cerr << "Error: Student number already exists!" << std::endl;
             return false;
         }
         
-        // Check if session exists and has available slots
         Session* session = Session::findById(sessionId);
         if (!session) {
             std::cerr << "Error: Invalid session!" << std::endl;
@@ -87,10 +46,8 @@ bool Student::enroll() {
             return false;
         }
         
-        // Start transaction
         db->executeSQL("BEGIN TRANSACTION");
         
-        // Insert student
         sqlite3_stmt* stmt = db->prepareStatement(
             "INSERT INTO students (student_number, student_name, section, session_id, learning_modality) VALUES (?, ?, ?, ?, ?)"
         );
@@ -113,12 +70,9 @@ bool Student::enroll() {
         bool result = (rc == SQLITE_DONE);
         
         if (result) {
-            // Reduce available slots
             session->setAvailableSlots(session->getAvailableSlots() - 1);
             session->update();
-            
             db->executeSQL("COMMIT");
-            std::cout << "Student enrolled successfully!" << std::endl;
         } else {
             db->executeSQL("ROLLBACK");
         }
@@ -140,16 +94,13 @@ bool Student::remove() {
     try {
         DatabaseConnection* db = DatabaseConnection::getInstance();
         
-        // Get student info before deletion
         Student* student = Student::findById(id);
         if (!student) {
             return false;
         }
         
-        // Start transaction
         db->executeSQL("BEGIN TRANSACTION");
         
-        // Restore session slot
         Session* session = Session::findById(student->getSessionId());
         if (session) {
             session->setAvailableSlots(session->getAvailableSlots() + 1);
@@ -157,7 +108,6 @@ bool Student::remove() {
             delete session;
         }
         
-        // Delete student
         sqlite3_stmt* stmt = db->prepareStatement(
             "DELETE FROM students WHERE id = ?"
         );
@@ -176,7 +126,6 @@ bool Student::remove() {
         
         if (result) {
             db->executeSQL("COMMIT");
-            std::cout << "Student removed successfully!" << std::endl;
         } else {
             db->executeSQL("ROLLBACK");
         }
@@ -321,63 +270,41 @@ std::vector<Student*> Student::getBySessionId(int sessionId) {
 }
 
 bool Student::studentNumberExists(const std::string& studentNumber) {
-    return findByStudentNumber(studentNumber) != nullptr;
+    Student* s = findByStudentNumber(studentNumber);
+    bool exists = (s != nullptr);
+    delete s;
+    return exists;
 }
 
 void Student::display() const {
     Session* session = Session::findById(sessionId);
-    std::cout << std::left << std::setw(5) << id
-              << std::setw(20) << studentNumber
-              << std::setw(30) << studentName
-              << std::setw(15) << section
-              << std::setw(25) << (session ? session->getSessionName() : "N/A")
-              << std::setw(20) << learningModality << std::endl;
+    std::cout << std::left << std::setw(5)  << id
+              << std::setw(14) << studentNumber
+              << std::setw(22) << studentName
+              << std::setw(8)  << section
+              << std::setw(22) << (session ? session->getSessionName() : "N/A")
+              << std::setw(13) << learningModality << std::endl;
     delete session;
 }
 
 void Student::displayAll() {
     std::cout << "\n=== All Enrolled Students ===" << std::endl;
-    std::cout << std::left << std::setw(5) << "ID"
-              << std::setw(20) << "Student No."
-              << std::setw(30) << "Name"
-              << std::setw(15) << "Section"
-              << std::setw(25) << "Session"
-              << std::setw(20) << "Modality" << std::endl;
-    std::cout << std::string(115, '-') << std::endl;
+    std::cout << std::left << std::setw(5)  << "ID"
+              << std::setw(14) << "Student No."
+              << std::setw(22) << "Name"
+              << std::setw(8)  << "Section"
+              << std::setw(22) << "Session"
+              << std::setw(13) << "Modality" << std::endl;
+    std::cout << std::string(84, '-') << std::endl;
     
     std::vector<Student*> students = getAll();
+    if (students.empty()) {
+        std::cout << "No students enrolled." << std::endl;
+    }
+    
     for (Student* student : students) {
         student->display();
         delete student;
     }
-    std::cout << std::string(115, '-') << std::endl;
-}
-
-void Student::displayBySession(int sessionId) {
-    Session* session = Session::findById(sessionId);
-    if (!session) {
-        std::cout << "Invalid session!" << std::endl;
-        return;
-    }
-    
-    std::cout << "\n=== Students in " << session->getSessionName() << " ===" << std::endl;
-    std::cout << std::left << std::setw(5) << "ID"
-              << std::setw(20) << "Student No."
-              << std::setw(30) << "Name"
-              << std::setw(15) << "Section"
-              << std::setw(20) << "Modality" << std::endl;
-    std::cout << std::string(90, '-') << std::endl;
-    
-    std::vector<Student*> students = getBySessionId(sessionId);
-    for (Student* student : students) {
-        std::cout << std::left << std::setw(5) << student->getId()
-                  << std::setw(20) << student->getStudentNumber()
-                  << std::setw(30) << student->getStudentName()
-                  << std::setw(15) << student->getSection()
-                  << std::setw(20) << student->getLearningModality() << std::endl;
-        delete student;
-    }
-    std::cout << std::string(90, '-') << std::endl;
-    
-    delete session;
+    std::cout << std::string(84, '-') << std::endl;
 }

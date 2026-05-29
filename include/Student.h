@@ -13,7 +13,7 @@ private:
     std::string section;
     int sessionId;
     std::string learningModality;
-
+    
 public:
     Student();
     Student(int id, const std::string& studentNumber, const std::string& studentName,
@@ -47,7 +47,6 @@ public:
     // Display
     void display() const;
     static void displayAll();
-    static void displayBySession(int sessionId);
 };
 
-#endif // STUDENT_H
+#endif

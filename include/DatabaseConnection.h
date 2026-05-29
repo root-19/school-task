@@ -8,7 +8,7 @@ class DatabaseConnection {
 private:
     sqlite3* db;
     static DatabaseConnection* instance;
-
+    
     DatabaseConnection();
     
 public:
@@ -23,4 +23,4 @@ public:
     sqlite3_stmt* prepareStatement(const std::string& sql);
 };
 
-#endif // DATABASECONNECTION_H
+#endif

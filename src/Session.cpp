@@ -200,56 +200,64 @@ std::vector<Session*> Session::getAll() {
 }
 
 bool Session::sessionNameExists(const std::string& sessionName) {
-    return findBySessionName(sessionName) != nullptr;
+    Session* s = findBySessionName(sessionName);
+    bool exists = (s != nullptr);
+    delete s;
+    return exists;
 }
 
 void Session::display() const {
-    std::cout << std::left << std::setw(5) << id
-              << std::setw(30) << sessionName
-              << std::setw(15) << section
-              << std::setw(15) << availableSlots
-              << std::setw(15) << totalSlots
-              << std::setw(20) << learningModality << std::endl;
+    std::cout << std::left << std::setw(5)  << id
+              << std::setw(26) << sessionName
+              << std::setw(8)  << section
+              << std::setw(11) << availableSlots
+              << std::setw(7)  << totalSlots
+              << std::setw(14) << learningModality << std::endl;
 }
 
 void Session::displayAll() {
     std::cout << "\n=== All Sessions ===" << std::endl;
-    std::cout << std::left << std::setw(5) << "ID"
-              << std::setw(30) << "Session Name"
-              << std::setw(15) << "Section"
-              << std::setw(15) << "Available"
-              << std::setw(15) << "Total"
-              << std::setw(20) << "Modality" << std::endl;
-    std::cout << std::string(100, '-') << std::endl;
+    std::cout << std::left << std::setw(5)  << "ID"
+              << std::setw(26) << "Session Name"
+              << std::setw(8)  << "Section"
+              << std::setw(11) << "Available"
+              << std::setw(7)  << "Total"
+              << std::setw(14) << "Modality" << std::endl;
+    std::cout << std::string(71, '-') << std::endl;
     
     std::vector<Session*> sessions = getAll();
+    
+    if (sessions.empty()) {
+        std::cout << "No sessions found in database." << std::endl;
+    }
+    
     for (Session* session : sessions) {
         session->display();
         delete session;
     }
-    std::cout << std::string(100, '-') << std::endl;
+    std::cout << std::string(71, '-') << std::endl;
 }
 
 void Session::displayAvailableSlots() {
     std::cout << "\n=== Available Slots per Session ===" << std::endl;
-    std::cout << std::left << std::setw(5) << "ID"
-              << std::setw(30) << "Session Name"
-              << std::setw(15) << "Section"
-              << std::setw(15) << "Available"
-              << std::setw(15) << "Total"
-              << std::setw(20) << "Status" << std::endl;
-    std::cout << std::string(100, '-') << std::endl;
+    std::cout << std::left << std::setw(5)  << "ID"
+              << std::setw(26) << "Session Name"
+              << std::setw(8)  << "Section"
+              << std::setw(11) << "Available"
+              << std::setw(7)  << "Total"
+              << std::setw(14) << "Status" << std::endl;
+    std::cout << std::string(71, '-') << std::endl;
     
     std::vector<Session*> sessions = getAll();
     for (Session* session : sessions) {
         std::string status = (session->getAvailableSlots() > 0) ? "Open" : "Full";
-        std::cout << std::left << std::setw(5) << session->getId()
-                  << std::setw(30) << session->getSessionName()
-                  << std::setw(15) << session->getSection()
-                  << std::setw(15) << session->getAvailableSlots()
-                  << std::setw(15) << session->getTotalSlots()
-                  << std::setw(20) << status << std::endl;
+        std::cout << std::left << std::setw(5)  << session->getId()
+                  << std::setw(26) << session->getSessionName()
+                  << std::setw(8)  << session->getSection()
+                  << std::setw(11) << session->getAvailableSlots()
+                  << std::setw(7)  << session->getTotalSlots()
+                  << std::setw(14) << status << std::endl;
         delete session;
     }
-    std::cout << std::string(100, '-') << std::endl;
+    std::cout << std::string(71, '-') << std::endl;
 }
