@@ -13,7 +13,7 @@ private:
     int totalSlots;
     int availableSlots;
     std::string learningModality;
-
+    
 public:
     Session();
     Session(int id, const std::string& sessionName, const std::string& section,
@@ -50,4 +50,4 @@ public:
     static void displayAvailableSlots();
 };
 
-#endif // SESSION_H
+#endif
