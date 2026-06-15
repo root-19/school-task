@@ -1,18 +1,24 @@
 #include "../include/Student.h"
 #include <iostream>
 #include <iomanip>
+#include <sstream>
+#include <ctime>
 #include "../include/Session.h"
 
-Student::Student() : id(0), sessionId(0) {}
+Student::Student() : id(0), age(0), sessionId(0) {}
 
 Student::Student(int id, const std::string& studentNumber, const std::string& studentName,
+                const std::string& gender, int age,
                 const std::string& section, int sessionId, const std::string& learningModality)
     : id(id), studentNumber(studentNumber), studentName(studentName),
+      gender(gender), age(age),
       section(section), sessionId(sessionId), learningModality(learningModality) {}
 
 int Student::getId() const { return id; }
 std::string Student::getStudentNumber() const { return studentNumber; }
 std::string Student::getStudentName() const { return studentName; }
+std::string Student::getGender() const { return gender; }
+int Student::getAge() const { return age; }
 std::string Student::getSection() const { return section; }
 int Student::getSessionId() const { return sessionId; }
 std::string Student::getLearningModality() const { return learningModality; }
@@ -20,6 +26,8 @@ std::string Student::getLearningModality() const { return learningModality; }
 void Student::setId(int id) { this->id = id; }
 void Student::setStudentNumber(const std::string& studentNumber) { this->studentNumber = studentNumber; }
 void Student::setStudentName(const std::string& studentName) { this->studentName = studentName; }
+void Student::setGender(const std::string& gender) { this->gender = gender; }
+void Student::setAge(int age) { this->age = age; }
 void Student::setSection(const std::string& section) { this->section = section; }
 void Student::setSessionId(int sessionId) { this->sessionId = sessionId; }
 void Student::setLearningModality(const std::string& learningModality) { this->learningModality = learningModality; }
@@ -49,7 +57,7 @@ bool Student::enroll() {
         db->executeSQL("BEGIN TRANSACTION");
         
         sqlite3_stmt* stmt = db->prepareStatement(
-            "INSERT INTO students (student_number, student_name, section, session_id, learning_modality) VALUES (?, ?, ?, ?, ?)"
+            "INSERT INTO students (student_number, student_name, gender, age, section, session_id, learning_modality) VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
         
         if (!stmt) {
@@ -60,9 +68,11 @@ bool Student::enroll() {
         
         sqlite3_bind_text(stmt, 1, studentNumber.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, studentName.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 3, section.c_str(), -1, SQLITE_STATIC);
-        sqlite3_bind_int(stmt, 4, sessionId);
-        sqlite3_bind_text(stmt, 5, learningModality.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, gender.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 4, age);
+        sqlite3_bind_text(stmt, 5, section.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 6, sessionId);
+        sqlite3_bind_text(stmt, 7, learningModality.c_str(), -1, SQLITE_STATIC);
         
         int rc = sqlite3_step(stmt);
         sqlite3_finalize(stmt);
@@ -163,7 +173,9 @@ Student* Student::findByStudentNumber(const std::string& studentNumber) {
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
                 sqlite3_column_int(stmt, 4),
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5))
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)),
+                sqlite3_column_int(stmt, 6),
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7))
             );
         }
         
@@ -195,7 +207,9 @@ Student* Student::findById(int id) {
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
                 sqlite3_column_int(stmt, 4),
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5))
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)),
+                sqlite3_column_int(stmt, 6),
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7))
             );
         }
         
@@ -225,7 +239,9 @@ std::vector<Student*> Student::getAll() {
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
                 sqlite3_column_int(stmt, 4),
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5))
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)),
+                sqlite3_column_int(stmt, 6),
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7))
             );
             students.push_back(student);
         }
@@ -257,7 +273,9 @@ std::vector<Student*> Student::getBySessionId(int sessionId) {
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)),
                 reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)),
                 sqlite3_column_int(stmt, 4),
-                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5))
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)),
+                sqlite3_column_int(stmt, 6),
+                reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7))
             );
             students.push_back(student);
         }
@@ -276,11 +294,47 @@ bool Student::studentNumberExists(const std::string& studentNumber) {
     return exists;
 }
 
+std::string Student::generateStudentNumber() {
+    time_t now = time(nullptr);
+    tm* t = localtime(&now);
+    int year = 1900 + t->tm_year;
+    
+    int count = 1;
+    try {
+        DatabaseConnection* db = DatabaseConnection::getInstance();
+        sqlite3_stmt* stmt = db->prepareStatement(
+            "SELECT COUNT(*) FROM students"
+        );
+        if (stmt) {
+            if (sqlite3_step(stmt) == SQLITE_ROW) {
+                count = sqlite3_column_int(stmt, 0) + 1;
+            }
+            sqlite3_finalize(stmt);
+        }
+    } catch (...) {}
+    
+    std::ostringstream oss;
+    oss << year << "-" << std::setfill('0') << std::setw(5) << count;
+    
+    std::string candidate = oss.str();
+    int tries = 0;
+    while (studentNumberExists(candidate) && tries < 9999) {
+        count++;
+        tries++;
+        oss.str("");
+        oss << year << "-" << std::setfill('0') << std::setw(5) << count;
+        candidate = oss.str();
+    }
+    return candidate;
+}
+
 void Student::display() const {
     Session* session = Session::findById(sessionId);
     std::cout << std::left << std::setw(5)  << id
               << std::setw(14) << studentNumber
               << std::setw(22) << studentName
+              << std::setw(8)  << gender
+              << std::setw(5)  << age
               << std::setw(8)  << section
               << std::setw(22) << (session ? session->getSessionName() : "N/A")
               << std::setw(13) << learningModality << std::endl;
@@ -292,10 +346,12 @@ void Student::displayAll() {
     std::cout << std::left << std::setw(5)  << "ID"
               << std::setw(14) << "Student No."
               << std::setw(22) << "Name"
+              << std::setw(8)  << "Gender"
+              << std::setw(5)  << "Age"
               << std::setw(8)  << "Section"
               << std::setw(22) << "Session"
               << std::setw(13) << "Modality" << std::endl;
-    std::cout << std::string(84, '-') << std::endl;
+    std::cout << std::string(97, '-') << std::endl;
     
     std::vector<Student*> students = getAll();
     if (students.empty()) {
@@ -306,5 +362,5 @@ void Student::displayAll() {
         student->display();
         delete student;
     }
-    std::cout << std::string(84, '-') << std::endl;
+    std::cout << std::string(97, '-') << std::endl;
 }

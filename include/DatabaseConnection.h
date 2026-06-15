@@ -7,8 +7,7 @@
 class DatabaseConnection {
 private:
     sqlite3* db;
-    static DatabaseConnection* instance;
-    
+    static DatabaseConnection* instance;    
     DatabaseConnection();
     
 public:
@@ -20,6 +19,7 @@ public:
     void disconnect();
     bool isConnected();
     bool executeSQL(const std::string& sql);
+    bool executeSilent(const std::string& sql);
     sqlite3_stmt* prepareStatement(const std::string& sql);
 };
 
