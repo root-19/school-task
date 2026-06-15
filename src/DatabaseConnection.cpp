@@ -51,6 +51,16 @@ bool DatabaseConnection::executeSQL(const std::string& sql) {
     return true;
 }
 
+bool DatabaseConnection::executeSilent(const std::string& sql) {
+    char* errMsg = nullptr;
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
+    if (rc != SQLITE_OK) {
+        sqlite3_free(errMsg);
+        return false;
+    }
+    return true;
+}
+
 sqlite3_stmt* DatabaseConnection::prepareStatement(const std::string& sql) {
     sqlite3_stmt* stmt;
     int rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);

@@ -10,6 +10,8 @@ private:
     int id;
     std::string studentNumber;
     std::string studentName;
+    std::string gender;
+    int age;
     std::string section;
     int sessionId;
     std::string learningModality;
@@ -17,12 +19,15 @@ private:
 public:
     Student();
     Student(int id, const std::string& studentNumber, const std::string& studentName,
+            const std::string& gender, int age,
             const std::string& section, int sessionId, const std::string& learningModality);
     
     // Getters
     int getId() const;
     std::string getStudentNumber() const;
     std::string getStudentName() const;
+    std::string getGender() const;
+    int getAge() const;
     std::string getSection() const;
     int getSessionId() const;
     std::string getLearningModality() const;
@@ -31,6 +36,8 @@ public:
     void setId(int id);
     void setStudentNumber(const std::string& studentNumber);
     void setStudentName(const std::string& studentName);
+    void setGender(const std::string& gender);
+    void setAge(int age);
     void setSection(const std::string& section);
     void setSessionId(int sessionId);
     void setLearningModality(const std::string& learningModality);
@@ -43,6 +50,7 @@ public:
     static std::vector<Student*> getAll();
     static std::vector<Student*> getBySessionId(int sessionId);
     static bool studentNumberExists(const std::string& studentNumber);
+    static std::string generateStudentNumber();
     
     // Display
     void display() const;

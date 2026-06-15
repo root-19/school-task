@@ -43,6 +43,7 @@ public:
     static Session* findBySessionName(const std::string& sessionName);
     static std::vector<Session*> getAll();
     static bool sessionNameExists(const std::string& sessionName);
+    static std::vector<std::string> getAvailableSections();
     
     // Display
     void display() const;

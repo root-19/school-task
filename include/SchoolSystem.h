@@ -2,6 +2,7 @@
 #define SCHOOLSYSTEM_H
 
 #include <string>
+#include <vector>
 #include "DatabaseConnection.h"
 #include "User.h"
 #include "Student.h"

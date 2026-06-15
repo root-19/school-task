@@ -206,6 +206,24 @@ bool Session::sessionNameExists(const std::string& sessionName) {
     return exists;
 }
 
+std::vector<std::string> Session::getAvailableSections() {
+    std::vector<std::string> sections;
+    try {
+        DatabaseConnection* db = DatabaseConnection::getInstance();
+        sqlite3_stmt* stmt = db->prepareStatement(
+            "SELECT DISTINCT section FROM sessions WHERE available_slots > 0 ORDER BY section"
+        );
+        if (!stmt) return sections;
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            sections.push_back(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)));
+        }
+        sqlite3_finalize(stmt);
+    } catch (...) {
+        std::cerr << "Error getting available sections" << std::endl;
+    }
+    return sections;
+}
+
 void Session::display() const {
     std::cout << std::left << std::setw(5)  << id
               << std::setw(26) << sessionName

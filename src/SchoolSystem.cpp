@@ -2,12 +2,13 @@
 #include <iostream>
 #include <limits>
 #include <iomanip>
-
+#include <string>
+#include <vector>
 using namespace std;
 
 SchoolSystem::SchoolSystem() : currentUser(nullptr) {
     db = DatabaseConnection::getInstance();
-    string databasePath = "../build/school_management.db";
+    string databasePath = "school_management.db";
     
     if (!db->connect(databasePath)) {
         cerr << "Failed to connect to database. Exiting..." << endl;
@@ -49,28 +50,21 @@ void SchoolSystem::initializeDatabase() {
                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                    "student_number TEXT UNIQUE NOT NULL, "
                    "student_name TEXT NOT NULL, "
+                   "gender TEXT NOT NULL DEFAULT '', "
+                   "age INTEGER NOT NULL DEFAULT 0, "
                    "section TEXT NOT NULL, "
                    "session_id INTEGER NOT NULL, "
                    "learning_modality TEXT NOT NULL, "
                    "enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
                    "FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE)");
+    db->executeSilent("ALTER TABLE students ADD COLUMN gender TEXT NOT NULL DEFAULT ''");
+    db->executeSilent("ALTER TABLE students ADD COLUMN age INTEGER NOT NULL DEFAULT 0");
     
     // Insert default admin user
     db->executeSQL("INSERT OR IGNORE INTO users (username, password, email, role) "
                    "VALUES ('admin', 'admin123', 'admin@school.edu', 'ADMIN')");
     
-    // Insert sample sessions
-    bool insertResult = db->executeSQL("INSERT OR IGNORE INTO sessions (session_name, section, total_slots, available_slots, learning_modality) VALUES "
-                   "('Morning Session 2024', 'A', 30, 30, 'Face-to-Face'), "
-                   "('Afternoon Session 2024', 'B', 25, 25, 'Online'), "
-                   "('Evening Session 2024', 'C', 20, 20, 'Hybrid'), "
-                   "('Weekend Session 2024', 'D', 15, 15, 'Face-to-Face')");
-    
-    if (insertResult) {
-        cout << "Sample sessions inserted successfully!" << endl;
-    }
-    
-    cout << "Database initialized successfully!" << endl;
+    // cout << "Database initialized successfully!" << endl;
 }
 
 void SchoolSystem::clearInputBuffer() {
@@ -83,28 +77,52 @@ bool SchoolSystem::isEmpty(const string& str) {
 }
 
 void SchoolSystem::handleLogin() {
-    string username, password;
+    const int MAX_ATTEMPTS = 3;
+    int attempts = 0;
     
-    cout << "\nEnter username: ";
-    getline(cin, username);
-    
-    cout << "Enter password: ";
-    getline(cin, password);
-    
-    User* user = User::findByUsername(username);
-    
-    if (user == nullptr) {
-        cout << "User not found!" << endl;
-        return;
-    }
-    
-    if (user->authenticate(password)) {
-        currentUser = user;
-        cout << "Login successful! Welcome, " << user->getUsername() << "!" << endl;
-        cout << "Role: " << user->getRoleString() << endl;
-    } else {
-        cout << "Incorrect password!" << endl;
-        delete user;
+    while (attempts < MAX_ATTEMPTS) {
+        string username, password;
+        
+        cout << "\nEnter username: ";
+        getline(cin, username);
+        
+        cout << "Enter password: ";
+        getline(cin, password);
+        
+        if (isEmpty(username) || isEmpty(password)) {
+            cout << "Error: Username and password cannot be empty. Please try again." << endl;
+            attempts++;
+            continue;
+        }
+        
+        User* user = User::findByUsername(username);
+        
+        if (user == nullptr) {
+            attempts++;
+            cout << "Error: User '" << username << "' not found in the database.";
+            if (attempts < MAX_ATTEMPTS) {
+                cout << " Please try again. (" << attempts << "/" << MAX_ATTEMPTS << " attempts)" << endl;
+            } else {
+                cout << endl << "Maximum login attempts reached. Returning to main menu." << endl;
+            }
+            continue;
+        }
+        
+        if (user->authenticate(password)) {
+            currentUser = user;
+            cout << "Login successful! Welcome, " << user->getUsername() << "!" << endl;
+            cout << "Role: " << user->getRoleString() << endl;
+            return;
+        } else {
+            delete user;
+            attempts++;
+            cout << "Error: Incorrect password.";
+            if (attempts < MAX_ATTEMPTS) {
+                cout << " Please try again. (" << attempts << "/" << MAX_ATTEMPTS << " attempts)" << endl;
+            } else {
+                cout << endl << "Maximum login attempts reached. Returning to main menu." << endl;
+            }
+        }
     }
 }
 
@@ -322,7 +340,18 @@ void SchoolSystem::deleteSession() {
 }
 
 void SchoolSystem::enrollStudent() {
-    string studentNumber, studentName, section, learningModality;
+    {
+        User* check = (currentUser != nullptr) ? User::findByUsername(currentUser->getUsername()) : nullptr;
+        if (check == nullptr) {
+            cout << "Error: Your session is no longer valid. Please log in again." << endl;
+            logout();
+            return;
+        }
+        delete check;
+    }
+    
+    string studentNumber, studentName, gender, section, learningModality;
+    int age = 0;
     int sessionId;
     
     cout << "Enter Student Number: ";
@@ -334,7 +363,7 @@ void SchoolSystem::enrollStudent() {
     }
     
     if (Student::studentNumberExists(studentNumber)) {
-        cout << "Error: Student number already exists!" << endl;
+        cout << "Error: Student number '" << studentNumber << "' already exists!" << endl;
         return;
     }
     
@@ -346,46 +375,93 @@ void SchoolSystem::enrollStudent() {
         return;
     }
     
-    cout << "Enter Section: ";
-    getline(cin, section);
+    cout << "Enter Gender (Male/Female/Other): ";
+    getline(cin, gender);
     
-    if (isEmpty(section)) {
-        cout << "Error: Section cannot be empty!" << endl;
+    if (isEmpty(gender)) {
+        cout << "Error: Gender cannot be empty!" << endl;
         return;
     }
     
-    displayAvailableSlots();
-    
-    cout << "Enter Session ID: ";
-    cin >> sessionId;
-    clearInputBuffer();
-    
-    Session* session = Session::findById(sessionId);
-    if (!session) {
-        cout << "Error: Invalid session ID!" << endl;
+    cout << "Enter Age: ";
+    string ageStr;
+    getline(cin, ageStr);
+    try {
+        age = stoi(ageStr);
+    } catch (...) {
+        age = 0;
+    }
+    if (age <= 0 || age > 120) {
+        cout << "Error: Please enter a valid age (1-120)." << endl;
         return;
     }
     
-    if (session->getAvailableSlots() <= 0) {
-        cout << "Error: Session is already full!" << endl;
-        delete session;
+    vector<Session*> availSessions;
+    for (Session* s : Session::getAll()) {
+        if (s->getAvailableSlots() > 0) {
+            availSessions.push_back(s);
+        } else {
+            delete s;
+        }
+    }
+    
+    if (availSessions.empty()) {
+        cout << "Error: No sessions with available slots found. Please contact an administrator." << endl;
         return;
     }
     
-    cout << "Enter Learning Modality (Face-to-Face/Online/Hybrid): ";
-    getline(cin, learningModality);
-    
-    if (isEmpty(learningModality)) {
-        cout << "Error: Learning modality cannot be empty!" << endl;
-        delete session;
+    cout << "\n=== Available Sessions ==="  << endl;
+    cout << left << setw(5) << "No."
+         << setw(10) << "Section"
+         << setw(16) << "Modality"
+         << setw(11) << "Available"
+         << "Session Name" << endl;
+    cout << string(60, '-') << endl;
+    for (size_t i = 0; i < availSessions.size(); i++) {
+        cout << left << setw(5) << (i + 1)
+             << setw(10) << availSessions[i]->getSection()
+             << setw(16) << availSessions[i]->getLearningModality()
+             << setw(11) << availSessions[i]->getAvailableSlots()
+             << availSessions[i]->getSessionName() << endl;
+    }
+    cout << string(60, '-') << endl;
+    cout << "Select session number: ";
+    string secChoiceStr;
+    getline(cin, secChoiceStr);
+    int secChoice = 0;
+    try {
+        secChoice = stoi(secChoiceStr);
+    } catch (...) {
+        secChoice = 0;
+    }
+    if (secChoice < 1 || secChoice > (int)availSessions.size()) {
+        cout << "Error: Invalid session selection." << endl;
+        for (Session* s : availSessions) delete s;
         return;
     }
     
-    Student student(0, studentNumber, studentName, section, sessionId, learningModality);
+    Session* session = availSessions[secChoice - 1];
+    sessionId      = session->getId();
+    section        = session->getSection();
+    learningModality = session->getLearningModality();
+    
+    for (size_t i = 0; i < availSessions.size(); i++) {
+        if ((int)i != secChoice - 1) delete availSessions[i];
+    }
+    
+    Student student(0, studentNumber, studentName, gender, age, section, sessionId, learningModality);
     
     if (student.enroll()) {
-        cout << "Student enrolled successfully in " << session->getSessionName() << "!" << endl;
+        cout << "\n--- Enrollment Successful ---" << endl;
+        cout << "Student Number : " << studentNumber << endl;
+        cout << "Name           : " << studentName << endl;
+        cout << "Gender         : " << gender << endl;
+        cout << "Age            : " << age << endl;
+        cout << "Section        : " << section << endl;
+        cout << "Session        : " << session->getSessionName() << endl;
+        cout << "Modality       : " << learningModality << endl;
         cout << "Remaining slots: " << session->getAvailableSlots() - 1 << endl;
+        cout << "----------------------------" << endl;
     }
     
     delete session;
